@@ -1,0 +1,123 @@
+# Azure DevOps pipeline. Secrets live in the variable group "mobile-perf-secrets":
+# TESTMU_USERNAME, TESTMU_ACCESS_KEY, ANDROID_APP, ANDROID_APP_PACKAGE, ANDROID_APP_ACTIVITY.
+
+trigger:
+  branches:
+    include: [main]
+pr:
+  branches:
+    include: ['*']
+
+parameters:
+  - name: provider
+    type: string
+    default: testmu
+    values: [testmu, simulated]
+  - name: device
+    type: string
+    default: pixel_8
+  - name: iterations
+    type: number
+    default: 5
+
+variables:
+  - group: mobile-perf-secrets
+  - name: pythonVersion
+    value: '3.12'
+  - name: PERF_LABEL
+    value: ado-$(Build.BuildNumber)
+  - name: APP_BUILD
+    value: $(Build.BuildId)
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Unit
+    jobs:
+      - job: unit
+        steps:
+          - task: UsePythonVersion@0
+            inputs: { versionSpec: '$(pythonVersion)' }
+          - script: pip install -r requirements-dev.txt
+            displayName: Install
+          - script: pytest tests/unit --junitxml=reports/junit-unit.xml
+            displayName: Unit tests
+          - task: PublishTestResults@2
+            condition: always()
+            inputs:
+              testResultsFiles: reports/junit-unit.xml
+              testRunTitle: Framework unit tests
+
+  - stage: SimulatedSmoke
+    dependsOn: Unit
+    jobs:
+      - job: simulated
+        steps:
+          - task: UsePythonVersion@0
+            inputs: { versionSpec: '$(pythonVersion)' }
+          - script: pip install -r requirements.txt
+            displayName: Install
+          - script: >
+              pytest tests/startup tests/user_journey tests/stress tests/benchmark
+              --provider simulated --iterations 3 --perf-label "$(PERF_LABEL)"
+              --junitxml=reports/junit-sim.xml
+            displayName: Simulated performance suite
+          - script: python ci/publish_summary.py reports/metrics.json > reports/summary.md
+            condition: always()
+            displayName: Summary
+          - task: PublishTestResults@2
+            condition: always()
+            inputs: { testResultsFiles: reports/junit-sim.xml, testRunTitle: Simulated perf }
+          - task: PublishPipelineArtifact@1
+            condition: always()
+            inputs: { targetPath: reports, artifact: perf-report-simulated }
+
+  - stage: DeviceCloud
+    dependsOn: Unit
+    condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.Reason'], 'Manual')))
+    jobs:
+      - job: device
+        timeoutInMinutes: 90
+        steps:
+          - task: UsePythonVersion@0
+            inputs: { versionSpec: '$(pythonVersion)' }
+          - script: pip install -r requirements.txt
+            displayName: Install
+          # Trend history + baseline from the last successful main run (first run: nothing to download)
+          - task: DownloadPipelineArtifact@2
+            continueOnError: true
+            inputs:
+              source: specific
+              project: $(System.TeamProjectId)
+              pipeline: $(System.DefinitionId)
+              runVersion: latestFromBranch
+              runBranch: refs/heads/main
+              artifact: perf-report-device
+              path: $(Pipeline.Workspace)/previous
+          - script: |
+              mkdir -p reports
+              if [ -d "$(Pipeline.Workspace)/previous/history" ]; then cp -r "$(Pipeline.Workspace)/previous/history" reports/; fi
+              BASELINE_ARG=""
+              if [ -f "$(Pipeline.Workspace)/previous/metrics.json" ]; then BASELINE_ARG="--perf-baseline $(Pipeline.Workspace)/previous/metrics.json"; fi
+              pytest tests/startup tests/user_journey tests/stress \
+                --provider ${{ parameters.provider }} --device ${{ parameters.device }} \
+                --iterations ${{ parameters.iterations }} --perf-label "$(PERF_LABEL)" $BASELINE_ARG \
+                --junitxml=reports/junit-device.xml
+            displayName: Device performance suite
+            env:
+              TESTMU_USERNAME: $(TESTMU_USERNAME)
+              TESTMU_ACCESS_KEY: $(TESTMU_ACCESS_KEY)
+              ANDROID_APP: $(ANDROID_APP)
+              ANDROID_APP_PACKAGE: $(ANDROID_APP_PACKAGE)
+              ANDROID_APP_ACTIVITY: $(ANDROID_APP_ACTIVITY)
+              TESTMU_BUILD: $(Build.DefinitionName) $(Build.BuildNumber)
+          - script: python ci/publish_summary.py reports/metrics.json > reports/summary.md
+            condition: always()
+            displayName: Summary
+          - task: PublishTestResults@2
+            condition: always()
+            inputs: { testResultsFiles: reports/junit-device.xml, testRunTitle: Device perf }
+          - task: PublishPipelineArtifact@1
+            condition: always()
+            inputs: { targetPath: reports, artifact: perf-report-device }

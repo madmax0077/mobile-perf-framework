@@ -1,0 +1,323 @@
+{% extends "base.html.j2" %}
+{% block page_title %}{{ ctx.title }} - {{ ctx.run.run_id }}{% endblock %}
+{% block brand %}<a class="navbar-brand" href="#summary">{{ ctx.title }} <small>{{ ctx.run.run_id }}</small></a>{% endblock %}
+{% block nav %}
+        <li class="nav-item"><a class="nav-link" href="#summary">Summary</a></li>
+        <li class="nav-item"><a class="nav-link" href="#readiness">Readiness</a></li>
+        <li class="nav-item"><a class="nav-link" href="#issues">Issues</a></li>
+        {% for s in ctx.sections %}
+        <li class="nav-item"><a class="nav-link" href="#{{ s.id }}">{{ s.title.split(' ')[0] }}</a></li>
+        {% endfor %}
+        {% if ctx.comparisons %}<li class="nav-item"><a class="nav-link" href="#comparison">Comparison</a></li>{% endif %}
+        <li class="nav-item"><a class="nav-link" href="#trends">Trends</a></li>
+        <li class="nav-item"><a class="nav-link" href="#executions">Executions</a></li>
+{% endblock %}
+{% block content %}
+  <section id="summary" class="mb-5">
+    <h2 class="section-title mb-3">Executive Summary</h2>
+    <div class="row g-3">
+      <div class="col-lg-5">
+        <div class="card h-100">
+          <div class="card-body">
+            <table class="table table-sm summary-table mb-0">
+              <tbody>
+              {% for label, value in ctx.summary_rows %}
+                <tr><th scope="row">{{ label }}</th><td>{{ value }}</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6">
+        <div class="card h-100 text-center">
+          <div class="card-body">
+            <div class="label text-uppercase small text-secondary">Overall Performance Score</div>
+            {{ ctx.gauge | safe }}
+            <span class="badge text-bg-{{ ctx.rating_class }} badge-rating">{{ ctx.run.score.rating.value }}</span>
+            <div class="mt-2"><a class="badge text-bg-{{ ctx.readiness.class }} badge-rating text-decoration-none" href="#readiness">Production: {{ ctx.readiness.verdict }}</a></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4 col-md-6">
+        <div class="card h-100"><div class="card-body">{{ ctx.category_chart | safe }}</div></div>
+      </div>
+    </div>
+
+    {% if ctx.findings %}
+    <div class="card mt-3" id="findings">
+      <div class="card-header fw-semibold">Analysis findings</div>
+      <ul class="list-group list-group-flush">
+        {% for f in ctx.findings %}
+        <li class="list-group-item d-flex justify-content-between align-items-start">
+          <div><span class="fw-semibold text-capitalize">{{ f.kind }}</span> - <a href="{{ f.link }}">{{ f.test }}</a>
+            <div class="small text-secondary">{{ f.message }}</div></div>
+          {% if f.detected %}<span class="badge text-bg-danger">Detected</span>
+          {% else %}<span class="badge text-bg-success">OK</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </section>
+
+  <section id="readiness" class="mb-5">
+    <h2 class="section-title mb-3">Production Readiness
+      <span class="badge text-bg-{{ ctx.readiness.class }} align-middle fs-6">{{ ctx.readiness.verdict }}</span></h2>
+    {% if ctx.readiness.rows %}
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light"><tr>
+            <th>Benchmark</th><th class="text-end">Run value</th><th class="text-end">Good</th><th class="text-end">Limit</th><th>Status</th>
+            {% for t in ctx.readiness.tests %}<th class="small"><a href="{{ t.link }}">{{ t.name }}</a></th>{% endfor %}
+            <th>Source</th>
+          </tr></thead>
+          <tbody>
+          {% for r in ctx.readiness.rows %}
+            <tr>
+              <td class="fw-semibold">{{ r.title }}<div class="small text-secondary">{{ r.metric }}</div></td>
+              <td class="text-end">{{ r.value }}</td>
+              <td class="text-end text-secondary">{{ r.good }}</td>
+              <td class="text-end text-secondary">{{ r.limit }}</td>
+              <td><span class="badge text-bg-{{ r.status_class }} text-uppercase">{{ r.status }}</span></td>
+              {% for cell in r.per_test %}
+              <td class="small">{% if cell %}<a class="badge text-bg-{{ cell.status_class }} text-decoration-none" href="{{ cell.link }}" title="{{ cell.status }}">{{ cell.value }}</a>{% else %}-{% endif %}</td>
+              {% endfor %}
+              <td class="small text-secondary">{{ r.source }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p class="small text-secondary mt-2">Pass = at or better than "good"; fail = at or worse than "limit" (configure in
+      <code>config/framework.yaml</code> &rarr; <code>benchmarks</code>). Click a test value to drill into it.</p>
+    {% else %}
+    <div class="card"><div class="card-body text-secondary">Production benchmarks are disabled.</div></div>
+    {% endif %}
+  </section>
+
+  <section id="issues" class="mb-5">
+    <h2 class="section-title mb-3">Issues Found
+      {% for sev, n in ctx.issue_counts.items() if n %}
+      <span class="badge text-bg-{{ {'critical': 'danger', 'major': 'warning', 'minor': 'info'}[sev] }} align-middle fs-6">{{ n }} {{ sev }}</span>
+      {% endfor %}
+    </h2>
+    {% if ctx.issues %}
+    <div class="btn-group issue-filter mb-2" role="group" aria-label="Filter issues">
+      <button type="button" class="btn btn-outline-secondary active" data-filter="all">All</button>
+      <button type="button" class="btn btn-outline-danger" data-filter="critical">Critical</button>
+      <button type="button" class="btn btn-outline-warning" data-filter="major">Major</button>
+      <button type="button" class="btn btn-outline-info" data-filter="minor">Minor</button>
+    </div>
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0" id="issue-table">
+          <thead class="table-light"><tr><th>Severity</th><th>Test</th><th>Category</th><th>Issue</th><th>Step</th><th></th></tr></thead>
+          <tbody>
+          {% for i in ctx.issues %}
+            <tr id="{{ i.anchor }}" data-severity="{{ i.severity }}">
+              <td><span class="badge text-bg-{{ i.severity_class }} text-uppercase">{{ i.severity }}</span></td>
+              <td class="small"><a href="{{ i.test_link }}">{{ i.test }}</a></td>
+              <td class="small text-capitalize">{{ i.category }}</td>
+              <td><a class="fw-semibold text-decoration-none" href="{{ i.link }}">{{ i.title }}</a>
+                {% if i.cause %}<div class="small mt-1"><span class="text-secondary">Cause:</span>
+                  {% if i.cause_link %}<a href="{{ i.cause_link }}"><code class="cause">{{ i.cause }}</code></a>{% else %}<code class="cause">{{ i.cause }}</code>{% endif %}</div>{% endif %}
+                {% if i.detail %}<div class="small text-secondary text-break">{{ i.detail }}</div>{% endif %}</td>
+              <td class="small">{% if i.step_link %}<a href="{{ i.step_link }}">{{ i.step }}</a>{% else %}-{% endif %}</td>
+              <td class="text-nowrap">
+                <a class="btn btn-sm btn-primary" href="{{ i.link }}">Drill down</a>
+                <button class="btn btn-sm btn-link copy-link" data-copy-link="{{ i.link }}">Copy link</button>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="card"><div class="card-body text-success">No issues found in this run.</div></div>
+    {% endif %}
+  </section>
+
+  {% for s in ctx.sections %}
+  <section id="{{ s.id }}" class="mb-5">
+    <h2 class="section-title mb-3">{{ s.title }}</h2>
+    <div class="row g-3 mb-3">
+      {% for k in s.kpis %}
+      <div class="col-6 col-md-3">
+        <div class="card kpi h-100"><div class="card-body py-2">
+          <div class="label">{{ k.label }}</div><div class="value">{{ k.value }}</div>
+        </div></div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="row g-3">
+      {% for c in s.charts %}
+      <div class="col-lg-{{ c.width }}">
+        <div class="card h-100"><div class="card-body">{{ c.html | safe }}</div></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% if s.id == 'stability' %}
+    <div class="card mt-3">
+      <div class="card-header fw-semibold">Crash log</div>
+      {% if ctx.crashes %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light"><tr>
+            <th>Test</th><th>Type</th><th>Step</th><th>Time</th><th>Process / PID</th><th>Exception</th><th>Source</th><th>Links</th>
+          </tr></thead>
+          <tbody>
+          {% for c in ctx.crashes %}
+            <tr class="table-danger">
+              <td class="fw-semibold"><a href="{{ c.link }}">{{ c.test }}</a></td>
+              <td><span class="badge text-bg-{{ 'warning' if c.type == 'anr' else 'danger' }}">{{ c.type }}</span></td>
+              <td>{{ c.step }}</td>
+              <td class="small">{{ c.time }}<br><span class="text-secondary">device {{ c.device_time }}</span></td>
+              <td class="small">{{ c.process }} / {{ c.pid }}</td>
+              <td class="small text-break">{{ c.exception }}</td>
+              <td class="small">{{ c.source }}</td>
+              <td class="small text-nowrap">
+                <a href="{{ c.link }}">details</a>
+                {% if c.logs_url %}&middot; <a href="{{ c.logs_url }}" target="_blank" rel="noopener">logs</a>{% endif %}
+                {% if c.video %}&middot; <a href="{{ c.video }}" target="_blank" rel="noopener">video</a>{% endif %}
+              </td>
+            </tr>
+            {% if c.stacktrace %}
+            <tr><td colspan="8">
+              <details><summary class="small">Stack trace / log excerpt</summary>
+                <pre class="error p-2 mb-0">{{ c.stacktrace }}</pre></details>
+            </td></tr>
+            {% endif %}
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body text-success">No app crashes, native crashes or ANRs were detected in this run.</div>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% if s.note %}<p class="small text-secondary mt-2">{{ s.note }}</p>{% endif %}
+  </section>
+  {% endfor %}
+
+  {% if ctx.comparisons %}
+  <section id="comparison" class="mb-5">
+    <h2 class="section-title mb-3">Build Comparison</h2>
+    {% for c in ctx.comparisons %}
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between">
+        <span class="fw-semibold">{{ c.result.candidate_label }} vs {{ c.result.baseline_label }}</span>
+        {% if c.result.passed %}<span class="badge text-bg-success">PASS</span>
+        {% else %}<span class="badge text-bg-danger">REGRESSION</span>{% endif %}
+      </div>
+      <div class="card-body">
+        <div class="row g-3 mb-3">
+          {% for name, diff in c.headline.items() %}
+          <div class="col-6 col-md-3">
+            <div class="card kpi"><div class="card-body py-2">
+              <div class="label">{{ name }} difference</div>
+              <div class="value">{% if diff is none %}-{% else %}{{ '%+.1f' % diff }}%{% endif %}</div>
+            </div></div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="row g-3">
+          <div class="col-lg-6">{{ c.chart | safe }}</div>
+          <div class="col-lg-6 table-responsive">
+            <table class="table table-sm table-hover align-middle">
+              <thead><tr><th>Metric</th><th class="text-end">Baseline</th><th class="text-end">Candidate</th>
+                <th class="text-end">Diff</th><th class="text-end">Limit</th><th></th></tr></thead>
+              <tbody>
+              {% for d in c.result.deltas %}
+                <tr class="{{ 'table-danger' if d.regression else ('table-success' if d.improvement else '') }}">
+                  <td>{{ d.metric }}</td>
+                  <td class="text-end">{{ '%.2f' % d.baseline if d.baseline is not none else '-' }}</td>
+                  <td class="text-end">{{ '%.2f' % d.candidate if d.candidate is not none else '-' }}</td>
+                  <td class="text-end">{{ '%+.1f%%' % d.diff_pct if d.diff_pct is not none else '-' }}</td>
+                  <td class="text-end">{{ '%.0f%%' % d.threshold_pct if d.threshold_pct is not none else '-' }}</td>
+                  <td>{{ 'regression' if d.regression else ('improved' if d.improvement else '') }}</td>
+                </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  <section id="trends" class="mb-5">
+    <h2 class="section-title mb-3">Trend Report</h2>
+    <div class="card"><div class="card-body">{{ ctx.trend_chart | safe }}</div></div>
+  </section>
+
+  <section id="executions" class="mb-5">
+    <h2 class="section-title mb-3">Test Executions</h2>
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light"><tr>
+            <th>Test</th><th>Type</th><th>Status</th><th>Duration</th><th>Score</th>
+            <th>Steps</th><th>Issues</th><th>Crashes</th><th>Device</th><th>Session</th><th>Artifacts</th></tr></thead>
+          <tbody>
+          {% for e in ctx.executions %}
+            <tr id="exec-{{ e.slug }}">
+              <td class="fw-semibold"><a href="{{ e.page }}">{{ e.name }}</a></td>
+              <td>{{ e.type }}</td>
+              <td><span class="badge text-bg-{{ {'passed': 'success', 'failed': 'danger', 'error': 'danger'}.get(e.status, 'secondary') }}">{{ e.status }}</span></td>
+              <td>{{ e.duration }}</td>
+              <td><span class="badge text-bg-{{ e.rating_class }}">{{ e.score }}</span> <small class="text-secondary">{{ e.rating }}</small></td>
+              <td class="small">{{ e.steps }}{% if e.failed_steps %} <span class="badge text-bg-danger">{{ e.failed_steps }} failed</span>{% endif %}
+                {% if e.shots %}<div class="text-secondary">{{ e.shots }} screenshots</div>{% endif %}</td>
+              <td class="small">
+                {% for sev, n in e.issues.items() if n %}<a class="badge text-bg-{{ {'critical': 'danger', 'major': 'warning', 'minor': 'info'}[sev] }} text-decoration-none" href="{{ e.page }}#issues">{{ n }} {{ sev }}</a> {% else %}0{% endfor %}
+              </td>
+              <td>{% if e.crashes %}<span class="badge text-bg-danger">{{ e.crashes }}</span>{% else %}0{% endif %}</td>
+              <td class="small">{{ e.device }}</td>
+              <td class="small text-break">{{ e.session }}</td>
+              <td class="small text-nowrap">
+                <a href="{{ e.page }}">drilldown</a>
+                {% if e.video %}&middot; <a href="{{ e.video }}" target="_blank" rel="noopener">video</a>{% endif %}
+                {% if e.screenshot %}&middot; <a href="{{ e.screenshot }}" data-shot data-caption="{{ e.name }} - failure screen">failure screen</a>{% endif %}
+              </td>
+            </tr>
+            {% if e.error %}
+            <tr><td colspan="11"><pre class="error p-2 mb-0">{{ e.error }}</pre></td></tr>
+            {% endif %}
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p class="small text-secondary mt-2">
+      Data: <a href="performance_data.json">performance_data.json</a> (schema v{{ schema_version }},
+      <a href="performance_data.schema.json">JSON Schema</a>) &middot;
+      CSV: <a href="csv/samples.csv">samples</a>, <a href="csv/steps.csv">steps</a>,
+      <a href="csv/requests.csv">requests</a>, <a href="csv/kpis.csv">kpis</a>,
+      <a href="csv/benchmarks.csv">benchmarks</a>, <a href="csv/issues.csv">issues</a> &middot;
+      <a href="metrics.json">metrics.json</a> &middot; Raw telemetry: <a href="raw/">raw/</a> &middot;
+      Trend history: <a href="{{ trend_file }}">trend.json</a>
+    </p>
+  </section>
+{% endblock %}
+{% block footer %}
+  Generated {{ ctx.generated_at }} &middot; provider {{ ctx.run.provider }} &middot;
+  {% for k, v in ctx.run.environment.items() %}{{ k }}={{ v }}{% if not loop.last %}, {% endif %}{% endfor %}
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('.issue-filter [data-filter]').forEach(button => button.addEventListener('click', () => {
+  document.querySelectorAll('.issue-filter .btn').forEach(b => b.classList.toggle('active', b === button));
+  const sev = button.dataset.filter;
+  document.querySelectorAll('#issue-table tbody tr').forEach(row => {
+    row.style.display = sev === 'all' || row.dataset.severity === sev ? '' : 'none';
+  });
+}));
+</script>
+{% endblock %}

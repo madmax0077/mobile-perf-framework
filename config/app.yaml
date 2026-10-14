@@ -1,0 +1,191 @@
+# Application under test. This is a placeholder app definition: fill in the
+# identifiers / locators (or the matching env vars) for your application.
+# Device-backed tests skip with a clear reason until the identifiers are set.
+
+app:
+  name: ${APP_NAME:-Sample App}
+  version: ${APP_VERSION:-1.0.0}
+  build_number: ${APP_BUILD:-local}
+  android:
+    package: ${ANDROID_APP_PACKAGE:-}
+    activity: ${ANDROID_APP_ACTIVITY:-}
+    # Local .apk path (uploaded automatically on TestMu), lt://APP id, or URL
+    app: ${ANDROID_APP:-}
+  ios:
+    bundle_id: ${IOS_BUNDLE_ID:-}
+    app: ${IOS_APP:-}
+  builds:
+    a: {label: "${BUILD_A_LABEL:-build-a}", app: "${BUILD_A_APP:-}"}
+    b: {label: "${BUILD_B_LABEL:-build-b}", app: "${BUILD_B_APP:-}"}
+  test_data:
+    username: ${APP_TEST_USER:-perf.user@example.com}
+    password: ${APP_TEST_PASSWORD:-}
+    # Phone / PIN / OTP login (tests skip when unset)
+    phone: ${APP_TEST_PHONE:-}
+    pin: ${APP_TEST_PIN:-}
+    otp: ${APP_TEST_OTP:-}
+    search_term: wireless headphones
+    # Pause between journey steps, emulating real user think time (seconds)
+    think_time_sec: ${THINK_TIME_SEC:-1.0}
+
+# Locator format: page -> element -> platform -> [strategy, value]
+# Strategies: id, accessibility id, xpath, class name,
+#             -android uiautomator, -ios predicate string, -ios class chain
+locators:
+  # Rebell app (Android), captured from the live UI on TestMu
+  home:
+    profile_icon: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_profile_entry"]}
+    balance: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_balance_content"]}
+    # Quick action "Cards & accounts"
+    cards_and_accounts: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_spend_from_action"]}
+    # Bottom navigation: Home, Stores, Offers, Orders, Videos
+    home_tab: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_bottom_nav_home"]}
+    offers_tab: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_bottom_nav_offers"]}
+    orders_tab: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_bottom_nav_orders"]}
+    # "<name>'s World | Discover" toggle above the feed; Discover shows offers, stores and flash deals
+    discover_tab: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_discover_toggle"]}
+    discover_offers: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_discover_offers_header"]}
+    discover_stores: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_discover_stores_title_header"]}
+    stores_tab: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_bottom_nav_stores"]}
+    # Search bar at the top; opens the AI Assistant mini program
+    search_entry: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_search_entry"]}
+    notifications: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_notification_entry"]}
+    send_request: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_send_request_action"]}
+    # Most recent entry of the Transactions card
+    latest_transaction: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_transaction_main_card"]}
+    # Daily shortcuts (Gift cards and Find parking, under the expand arrow, do nothing yet)
+    loyalty_cards: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_daily_loyalty_cards"]}
+    top_up_phone: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_daily_top_up_phone"]}
+    pay_bills: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_daily_pay_bills"]}
+    save_on_utilities: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_daily_save_utilities"]}
+    balance_amount: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_balance_amount"]}
+    # Eye icon "Show or hide Rebell Balance"
+    balance_visibility: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_balance_visibility"]}
+    # "Rebell QR" on the balance card: scan to pay, or show the payment code
+    rebell_qr: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_rebell_qr_visa"]}
+    top_up: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_top_up_action"]}
+    back_to_bank: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_v2_back_to_bank_action"]}
+    # "Need assistance? We've noticed some unusual activity" dialog of a restricted account
+    restricted: {android: [xpath, "//*[@text='Need assistance?']"]}
+    restricted_back_home: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/btn_secondary"]}
+  # Scan to pay (ScanActivity): merchant QR scanner with the payment code in a bottom sheet
+  scan:
+    title: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/title_scan_qr_code"]}
+    pay_method: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/has_default_pay_layout"]}
+    show_code: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/code_view"]}
+    payment_code: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/tvBarCode"]}
+    # "Payment codes are only used for payments with ..." notice over the code
+    code_notice_ok: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/btn_security_ok"]}
+    # Full-screen code: "Tap anywhere to close"
+    code_close: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/barcode_full_screen_layout"]}
+    close: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/btn_close"]}
+  # Profile > Security (ProfileSecurityActivity)
+  security:
+    change_pin: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/pin_set"]}
+  # Shared by the H5 mini programs (Cards & accounts, Offers, Orders, ...)
+  mini_program:
+    content: {android: [xpath, "//android.webkit.WebView//*[@text != '']"]}
+    # Native title bar of a pushed mini program, e.g. "PERSONAL DETAILS"
+    title: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/h5_tv_title"]}
+    load_error: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/tv_error_text"]}
+    error_code: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/tv_error"]}
+  cards:
+    # "CARDS & BANK ACCOUNTS": "Add new" appears under MY CARDS (first) and MY BANK ACCOUNTS
+    add_new_card: {android: [xpath, "(//*[@text='Add new'])[1]"]}
+    # Native add-card form (BindCardFlowActivity)
+    add_card_form: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/add_card_tips"]}
+  offers:
+    # Tabs at the top of the Offers mini program
+    my_offers: {android: [xpath, "//android.widget.TextView[@text='My offers']"]}
+    discover_offers: {android: [xpath, "//android.widget.TextView[@text='Discover offers']"]}
+    flash_deals: {android: [xpath, "//android.widget.TextView[@text='Flash deals']"]}
+  orders: {}
+  # Native notification centre (NotificationMainActivity / NotificationSettingsActivity)
+  notifications:
+    title: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/tv_base_title"]}
+    tab_all: {android: [xpath, "//*[@resource-id='${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/tv_tab_name' and @text='ALL']"]}
+    tab_my_world: {android: [xpath, "//*[@resource-id='${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/tv_tab_name' and @text='MY WORLD']"]}
+    tab_promotions: {android: [xpath, "//*[@resource-id='${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/tv_tab_name' and @text='PROMOTIONS & OFFERS']"]}
+    tab_services: {android: [xpath, "//*[@resource-id='${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/tv_tab_name' and @text='SERVICES']"]}
+    # A tab has loaded when it shows either messages or its empty state
+    message: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/tv_title"]}
+    empty: {android: [xpath, "//*[@text='No notifications yet']"]}
+    search: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/action_search_layout"]}
+    search_input: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/search_input"]}
+    # Search screen has no cancel button, only the toolbar back arrow
+    search_cancel: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/iv_base_back"]}
+    settings: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/iv_base_end_icon"]}
+    preferences: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/tv_my_world_title"]}
+  # AI Assistant mini program (home search bar)
+  ai_assistant:
+    topic_best_offers: {android: [xpath, "//android.widget.Button[@text='Find best offers']"]}
+    # Follow-up question with numbered answers ("1 Fashion & clothing", ..., "4 All offers")
+    follow_up: {android: [xpath, "//*[@content-desc='Send answer']"]}
+    answer_all_offers: {android: [xpath, "//android.widget.Button[contains(@text, 'All offers')]"]}
+    # The WebView stops updating its accessibility tree once the answer streams in, so
+    # the earliest reliable signal is the "Fetching offers" status
+    reply: {android: [xpath, "//*[@text='Fetching offers' or starts-with(@text, 'Here are')]"]}
+  # Stores tab mini program
+  stores:
+    my_stores: {android: [xpath, "//android.widget.TextView[@text='My stores']"]}
+    all_stores: {android: [xpath, "//android.widget.TextView[@text='All']"]}
+    # A followed store of the test account
+    store: {android: [xpath, "//android.widget.TextView[@text=\"${APP_TEST_STORE:-L'Aura}\"]"]}
+    store_directions: {android: [xpath, "//android.widget.TextView[@text='Get directions']"]}
+  # "What do you want to do?" sheet behind Send & request, and its mini programs
+  payments:
+    sheet: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/guide_title"]}
+    send_money: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_p2p_method_money_send_container"]}
+    request_money: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/home_p2p_method_money_request_container"]}
+    send_button: {android: [xpath, "//android.widget.Button[@text='SEND']"]}
+    request_button: {android: [xpath, "//android.widget.Button[@text='REQUEST']"]}
+    select_contact: {android: [xpath, "//*[@text='Select contact']"]}
+  transaction:
+    details: {android: [xpath, "//*[@text='TRANSACTION DETAILS']"]}
+    status: {android: [xpath, "//*[@text='Status']"]}
+  loyalty:
+    your_cards: {android: [xpath, "//*[@text='Your cards']"]}
+  # Daily shortcut mini programs
+  shortcuts:
+    phone_top_up: {android: [xpath, "//*[@text='Phone top-up']"]}
+    choose_operator: {android: [xpath, "//*[@text='Choose operator']"]}
+    pago_pa: {android: [xpath, "//*[@text='Scan a PagoPA QR code']"]}
+    utilities: {android: [xpath, "//*[@text='Save time and money on your bills, in just a few taps']"]}
+  login:
+    # Welcome screen: country code is pre-filled (+39); NEXT stays disabled until a number is typed
+    phone_input: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/edit_text_phone"]}
+    phone_next: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/btnNext"]}
+    # "Verify your PIN" sheet: 5-digit box input backed by a hidden, focused EditText
+    pin_input: {android: [xpath, "//*[@resource-id='${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/input_pin']//android.widget.EditText[@focused='true']"]}
+    pin_next: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/tv_confirm"]}
+    # Verification code sheet: 6-digit box input, submits automatically when complete
+    otp_input: {android: [xpath, "//*[@resource-id='${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/input_pin_not_dot']//android.widget.EditText[@focused='true']"]}
+    biometrics_later: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/maybe_later_button"]}
+    # Server rejected the sign-in ("We're sorry ... RESEND CODE"), e.g. two sessions signing in the same account at once
+    sign_in_error: {android: [xpath, "//*[contains(@text, 'something went wrong')]"]}
+    # Shown over the welcome screen after LOG OUT
+    logged_out: {android: [xpath, "//*[@text='Logged out successfully']"]}
+    logged_out_ok: {android: [xpath, "//*[@text='OK']"]}
+  search:
+    search_box: {android: [id, "com.example.app:id/search"], ios: [accessibility id, "search"]}
+    first_result: {android: [xpath, "(//*[@resource-id='com.example.app:id/result'])[1]"], ios: [-ios class chain, "**/XCUIElementTypeCell[1]"]}
+  checkout:
+    add_to_cart: {android: [id, "com.example.app:id/add_to_cart"], ios: [accessibility id, "add to cart"]}
+    cart: {android: [id, "com.example.app:id/cart"], ios: [accessibility id, "cart"]}
+    checkout: {android: [id, "com.example.app:id/checkout"], ios: [accessibility id, "checkout"]}
+    confirmation: {android: [id, "com.example.app:id/order_confirmation"], ios: [accessibility id, "order confirmation"]}
+  profile:
+    sign_in: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/profile_guest_login_btn"]}
+    phone_number: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/tv_phone_number"]}
+    nickname: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/tv_nike_name"]}
+    # Signed-in profile menu (HomeMyProfileActivity)
+    personal_details: {android: [xpath, "//*[@resource-id='${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/iv_profile_main_title' and @text='Personal details']"]}
+    balance_alert: {android: [xpath, "//*[@resource-id='${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/iv_profile_main_title' and @text='Balance alert']"]}
+    subscriptions: {android: [xpath, "//*[@resource-id='${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/iv_profile_main_title' and @text='Subscriptions & automatic payments']"]}
+    get_support: {android: [xpath, "//*[@resource-id='${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/iv_profile_main_title' and @text='Get support']"]}
+    security: {android: [xpath, "//*[@resource-id='${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/iv_profile_main_title' and @text='Security']"]}
+    logout: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/btn_logout"]}
+    # "Log out? Are you sure you want to log out?" with LOG OUT / STAY
+    logout_dialog: {android: [xpath, "//*[@text='Log out?']"]}
+    logout_confirm: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/btn_primary"]}
+    logout_stay: {android: [id, "${ANDROID_APP_PACKAGE:-com.rebellapp.consumer.uat}:id/btn_secondary"]}

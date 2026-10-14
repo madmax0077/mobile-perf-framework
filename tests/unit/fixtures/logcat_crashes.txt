@@ -1,0 +1,23 @@
+--------- beginning of main
+10-06 09:35:37.329  2431  2431 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-06 09:35:37.332  2431  2431 I AndroidRuntime: Using default boot image
+10-06 09:35:37.461  2302  2302 W NativeCrashHandlerImpl: java.lang.UnsatisfiedLinkError: dlopen failed: library "libnative_crash_handler_jni.so" not found
+10-06 09:35:39.990  2827  2858 D libcrashlytics: Initializing native crash handling successful.
+10-06 09:40:12.101  5120  5120 E AndroidRuntime: FATAL EXCEPTION: main
+10-06 09:40:12.101  5120  5120 E AndroidRuntime: Process: com.rebellapp.consumer.uat, PID: 5120
+10-06 09:40:12.101  5120  5120 E AndroidRuntime: java.lang.NullPointerException: Attempt to invoke virtual method 'int java.lang.String.length()' on a null object reference
+10-06 09:40:12.101  5120  5120 E AndroidRuntime: 	at com.adw.onboarding.pages.WelcomeActivity.onNext(WelcomeActivity.kt:88)
+10-06 09:40:12.101  5120  5120 E AndroidRuntime: 	at android.view.View.performClick(View.java:7659)
+10-06 09:40:12.102  1450  1477 I ActivityManager: Process com.rebellapp.consumer.uat (pid 5120) has died: fg  TOP
+10-06 09:41:00.500  6001  6001 E AndroidRuntime: FATAL EXCEPTION: main
+10-06 09:41:00.500  6001  6001 E AndroidRuntime: Process: com.other.app, PID: 6001
+10-06 09:41:00.500  6001  6001 E AndroidRuntime: java.lang.IllegalStateException: not ours
+10-06 09:42:30.000  1450  1490 E ActivityManager: ANR in com.rebellapp.consumer.uat (com.rebellapp.consumer.uat/com.adw.home.HomeV2Activity)
+10-06 09:42:30.000  1450  1490 E ActivityManager: PID: 5300
+10-06 09:42:30.000  1450  1490 E ActivityManager: Reason: Input dispatching timed out (Waiting to send non-key event)
+10-06 09:42:30.000  1450  1490 E ActivityManager: Load: 4.2 / 3.9 / 3.1
+10-06 09:42:31.000  1450  1490 I ActivityManager: Start proc 5400:com.android.chrome/u0a120
+10-06 09:43:05.200  5500  5530 F libc    : Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x0 in tid 5530 (RenderThread), pid 5500 (com.rebellapp.consumer.uat)
+10-06 09:43:05.400  5600  5600 F DEBUG   : *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+10-06 09:43:05.400  5600  5600 F DEBUG   : pid: 5500, tid: 5530, name: RenderThread  >>> com.rebellapp.consumer.uat <<<
+10-06 09:43:05.401  5600  5600 F DEBUG   :       #00 pc 000000000004f1a8  /system/lib64/libc.so (strlen+8)

@@ -1,0 +1,7 @@
+-r requirements.txt
+pytest-xdist>=3.6
+pytest-html>=4.1
+ruff>=0.6
+mypy>=1.11
+types-PyYAML
+types-requests

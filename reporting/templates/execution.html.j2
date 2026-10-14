@@ -1,0 +1,391 @@
+{% extends "base.html.j2" %}
+{% set e = v.execution %}
+{% block page_title %}{{ e.name }} - {{ run.run_id }}{% endblock %}
+{% block brand %}<a class="navbar-brand" href="{{ run_home }}">{{ title }} <small>{{ run.run_id }}</small></a>{% endblock %}
+{% block nav %}
+        <li class="nav-item"><a class="nav-link" href="#issues">Issues</a></li>
+        {% if v.shots %}<li class="nav-item"><a class="nav-link" href="#screens">Screens</a></li>{% endif %}
+        <li class="nav-item"><a class="nav-link" href="#timeline-section">Timeline</a></li>
+        <li class="nav-item"><a class="nav-link" href="#steps">Steps</a></li>
+        {% if v.why %}<li class="nav-item"><a class="nav-link" href="#why">Root cause</a></li>{% endif %}
+        {% if v.crashes %}<li class="nav-item"><a class="nav-link" href="#crashes">Crashes</a></li>{% endif %}
+        {% if v.benchmarks %}<li class="nav-item"><a class="nav-link" href="#benchmarks">Benchmarks</a></li>{% endif %}
+        {% if v.operations %}<li class="nav-item"><a class="nav-link" href="#operations">API operations</a></li>{% endif %}
+        <li class="nav-item"><a class="nav-link" href="#network">Network</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ v.nav.run }}">Run report</a></li>
+{% endblock %}
+{% block content %}
+  <nav aria-label="breadcrumb" class="d-flex justify-content-between align-items-center">
+    <ol class="breadcrumb mb-2 small">
+      <li class="breadcrumb-item"><a href="{{ home }}">All runs</a></li>
+      <li class="breadcrumb-item"><a href="{{ v.nav.run }}">{{ run.run_id }}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ e.name }}</li>
+    </ol>
+    <div class="btn-group btn-group-sm mb-2">
+      {% if v.nav.prev %}<a class="btn btn-outline-secondary" href="{{ v.nav.prev }}">&larr; Previous test</a>{% endif %}
+      {% if v.nav.next %}<a class="btn btn-outline-secondary" href="{{ v.nav.next }}">Next test &rarr;</a>{% endif %}
+    </div>
+  </nav>
+
+  <section id="overview" class="mb-4">
+    <h2 class="section-title mb-3">{{ e.name }}
+      <span class="badge text-bg-{{ v.status_class }} align-middle fs-6 text-uppercase">{{ e.status.value }}</span>
+      <span class="badge text-bg-{{ v.rating_class }} align-middle fs-6">score {{ '%.1f' % e.score.overall if e.score.overall is not none else '-' }}</span>
+    </h2>
+    <div class="row g-3">
+      <div class="col-lg-5">
+        <div class="card h-100"><div class="card-body">
+          <table class="table table-sm summary-table mb-2"><tbody>
+            {% for label, value in v.meta_rows %}<tr><th scope="row">{{ label }}</th><td class="text-break">{{ value }}</td></tr>{% endfor %}
+          </tbody></table>
+          {% for label, href in v.links.items() %}
+          <a class="btn btn-sm btn-outline-primary me-1 mb-1" href="{{ href }}" target="_blank" rel="noopener">{{ label }}</a>
+          {% endfor %}
+        </div></div>
+      </div>
+      <div class="col-lg-7">
+        <div class="row g-3">
+          {% for k in v.kpis %}
+          <div class="col-6 col-md-3">
+            <div class="card kpi h-100"><div class="card-body py-2">
+              <div class="label">{{ k.label }}</div><div class="value">{{ k.value }}</div>
+            </div></div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="issues" class="mb-5">
+    <h2 class="section-title mb-3">Issues <span class="badge text-bg-secondary align-middle fs-6">{{ v.issues | length }}</span></h2>
+    {% if v.issues %}
+    <div class="list-group">
+      {% for i in v.issues %}
+      <div class="list-group-item" id="{{ i.id }}" {% if i.step_anchor %}data-step="{{ i.step_anchor }}"{% endif %}>
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <div>
+            <span class="badge text-bg-{{ i.severity_class }} text-uppercase me-1">{{ i.severity }}</span>
+            <span class="small text-secondary text-capitalize me-1">{{ i.category }}</span>
+            <span class="fw-semibold">{{ i.title }}</span>
+            {% if i.cause %}<div class="small mt-1"><span class="text-secondary">Cause:</span> <code class="cause">{{ i.cause }}</code></div>{% endif %}
+            {% if i.detail %}<div class="small text-secondary text-break mt-1">{{ i.detail }}</div>{% endif %}
+          </div>
+          <div class="text-nowrap">
+            {% if i.why %}<a class="btn btn-sm btn-outline-danger" href="#{{ i.why }}">Root cause</a>{% endif %}
+            {% if i.step_anchor and i.step_anchor != i.target %}<a class="btn btn-sm btn-outline-secondary" href="#{{ i.step_anchor }}">Step</a>{% endif %}
+            {% if i.target %}<a class="btn btn-sm btn-primary" href="#{{ i.target }}">Show</a>{% endif %}
+            <button class="btn btn-sm btn-link copy-link" data-copy-link="#{{ i.id }}">Copy link</button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="card"><div class="card-body text-success">No issues found for this test.</div></div>
+    {% endif %}
+  </section>
+
+  {% if v.shots %}
+  <section id="screens" class="mb-5">
+    <h2 class="section-title mb-3">Step-by-step screens</h2>
+    <div class="card"><div class="card-body filmstrip">
+      {% for s in v.shots %}
+      <figure class="{{ 'failed' if s.failed else '' }}">
+        <a href="{{ s.src }}" data-shot data-caption="{{ s.caption }}" {% if s.anchor.startswith('step-') %}data-step="{{ s.anchor }}"{% endif %}>
+          <img src="{{ s.src }}" alt="{{ s.caption }}" loading="lazy"></a>
+        <figcaption title="{{ s.caption }}">{% if s.anchor.startswith('step-') %}<a href="#{{ s.anchor }}">{{ s.caption }}</a>{% else %}{{ s.caption }}{% endif %}</figcaption>
+      </figure>
+      {% endfor %}
+    </div></div>
+  </section>
+  {% endif %}
+
+  <section id="timeline-section" class="mb-5">
+    <h2 class="section-title mb-3">Timeline</h2>
+    <div class="card"><div class="card-body">{{ v.timeline | safe }}</div></div>
+    <p class="small text-secondary mt-2">Steps and metrics share one time axis; red dotted lines are crashes.
+      Click a step bar to open it; opening a step or issue link highlights its time window.</p>
+  </section>
+
+  <section id="steps" class="mb-5">
+    <h2 class="section-title mb-3">Steps <span class="badge text-bg-secondary align-middle fs-6">{{ v.steps | length }}</span></h2>
+    {% if v.steps %}
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light"><tr><th>#</th><th>Step</th><th>Start</th><th class="text-end">Duration</th><th>Status</th><th>Slowest part</th><th>Screen</th><th>Related</th><th></th></tr></thead>
+          <tbody>
+          {% for s in v.steps %}
+            <tr id="{{ s.anchor }}" class="step-row {{ s.state }}" data-step="{{ s.anchor }}">
+              <td class="text-secondary">{{ s.index }}</td>
+              <td><span class="fw-semibold">{{ s.name }}</span>{% if s.iteration is not none %} <span class="small text-secondary">iteration {{ s.iteration }}</span>{% endif %}
+                {% if s.error %}<div class="small text-danger text-break">{{ s.error }}</div>{% endif %}
+                {% if not s.measured %}<div class="small text-secondary">test wait - excluded from latency budgets</div>{% endif %}</td>
+              <td class="small text-secondary">{{ s.offset }}</td>
+              <td class="text-end">{{ s.duration }}</td>
+              <td><span class="badge text-bg-{{ {'ok': 'success', 'slow': 'warning', 'failed': 'danger', 'wait': 'secondary'}[s.state] }}">{{ {'ok': 'passed', 'slow': 'slow', 'failed': 'failed', 'wait': 'wait'}[s.state] }}</span></td>
+              <td class="small cause-cell">{% if s.cause %}<span class="badge text-bg-{{ s.cause.class }} me-1">{{ s.cause.layer }}</span><a href="#why-{{ s.anchor }}"><code class="cause">{{ s.cause.text }}</code></a>{% else %}<span class="text-secondary">-</span>{% endif %}</td>
+              <td class="step-shot">{% if s.screenshot %}<a href="{{ s.screenshot }}" data-shot data-step="{{ s.anchor }}" data-caption="{{ s.index }}. {{ s.name }} ({{ s.duration }})"><img src="{{ s.screenshot }}" alt="{{ s.name }}" loading="lazy"></a>{% else %}<span class="small text-secondary">-</span>{% endif %}</td>
+              <td class="small">
+                {% for n in s.crashes %}<a class="badge text-bg-danger text-decoration-none" href="#crash-{{ n }}">crash {{ n }}</a> {% endfor %}
+                {% for id in s.issues %}<a class="badge text-bg-light border text-decoration-none" href="#{{ id }}">{{ id }}</a> {% endfor %}
+              </td>
+              <td><button class="btn btn-sm btn-link copy-link" data-copy-link="#{{ s.anchor }}">Copy link</button></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="card"><div class="card-body text-secondary">This test did not record steps (use <code>perf_recorder.step(...)</code>).</div></div>
+    {% endif %}
+  </section>
+
+  {% if v.why %}
+  <section id="why" class="mb-5">
+    <h2 class="section-title mb-3">Root cause per step</h2>
+    <p class="small text-secondary">The code behind each step's time, at three levels: <span class="badge text-bg-danger">App code</span> classes and methods from the device log,
+      <span class="badge text-bg-primary">Backend API</span> operations from the network log, and <span class="badge text-bg-secondary">Test code</span> page-object methods and Appium commands.
+      The highlighted row is the primary cause. Slow and failed steps are expanded.</p>
+    {% for w in v.why %}
+    <details class="card mb-2 why-card {{ w.state }}" id="{{ w.anchor }}" data-step="{{ w.step_anchor }}" {% if w.open %}open{% endif %}>
+      <summary class="card-header d-flex justify-content-between align-items-center gap-2">
+        <span><span class="text-secondary me-1">{{ w.index }}.</span><span class="fw-semibold">{{ w.name }}</span>
+          <span class="badge text-bg-{{ {'ok': 'success', 'slow': 'warning', 'failed': 'danger', 'wait': 'secondary'}[w.state] }} ms-1">{{ w.duration }}</span>
+          {% if w.cause %}<span class="ms-2 small"><span class="badge text-bg-{{ w.cause.class }}">{{ w.cause.layer }}</span> <code class="cause">{{ w.cause.text }}</code></span>{% endif %}</span>
+        <span class="text-nowrap">
+          <a class="btn btn-sm btn-outline-secondary" href="#{{ w.step_anchor }}">Step</a>
+          <button class="btn btn-sm btn-link copy-link" data-copy-link="#{{ w.anchor }}">Copy link</button>
+        </span>
+      </summary>
+      <div class="card-body">
+        <p class="mb-2">{{ w.summary }}</p>
+        <div class="small text-secondary mb-3">
+          {% if w.network_busy %}Backend calls busy: {{ w.network_busy }} of {{ w.duration }}{% endif %}
+          {% if w.network_busy and w.driver %} &middot; {% endif %}
+          {% if w.driver %}Inside Appium / driver commands: {{ w.driver }}{% endif %}
+        </div>
+
+        {% if w.app %}
+        <h3 class="h6">App code</h3>
+        <div class="table-responsive mb-3"><table class="table table-sm align-middle mb-0">
+          <thead class="table-light"><tr><th>Signal</th><th>Class / method</th><th class="text-end">Time</th><th>Thread</th><th>Detail</th></tr></thead>
+          <tbody>
+          {% for a in w.app %}
+            <tr class="{{ 'table-warning' if a.primary else '' }}">
+              <td class="small text-capitalize text-nowrap">{{ a.kind }}</td>
+              <td><code class="cause">{{ a.name }}</code></td>
+              <td class="text-end text-nowrap">{{ a.duration }}</td>
+              <td class="small">{{ a.thread }}</td>
+              <td class="small text-break">{{ a.detail }}
+                {% if a.frames %}<details><summary class="small">Stack</summary><pre class="error p-2 mb-0">{{ a.frames | join('\n') }}</pre></details>{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table></div>
+        {% endif %}
+
+        {% if w.api %}
+        <h3 class="h6">Backend API calls during the step</h3>
+        <div class="table-responsive mb-3"><table class="table table-sm align-middle mb-0">
+          <thead class="table-light"><tr><th>Operation</th><th class="waterfall-col">Timing within the step</th><th class="text-end">Start</th><th class="text-end">Duration</th><th>Detail</th><th>Trace id</th></tr></thead>
+          <tbody>
+          {% for a in w.api %}
+            <tr class="{{ 'table-warning' if a.primary else ('text-secondary' if a.background else '') }}">
+              <td><code class="cause">{{ a.name }}</code>{% if a.background %} <span class="badge text-bg-light border">background</span>{% endif %}<div class="small text-secondary text-break">{{ a.url }}</div></td>
+              <td class="waterfall-col"><div class="waterfall"><span style="left: {{ a.bar_left }}%; width: {{ a.bar_width }}%"></span></div></td>
+              <td class="text-end small text-nowrap">{{ a.offset }}</td>
+              <td class="text-end text-nowrap">{{ a.duration }}</td>
+              <td class="small">{{ a.detail }}</td>
+              <td class="small text-break"><code>{{ a.trace_id or '-' }}</code></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table></div>
+        {% endif %}
+
+        {% if w.test %}
+        <h3 class="h6">Test code and Appium commands</h3>
+        <div class="table-responsive mb-0"><table class="table table-sm align-middle mb-0">
+          <thead class="table-light"><tr><th>Method</th><th>Commands</th><th class="text-end">Time</th><th class="text-end">Share</th><th>Called from</th></tr></thead>
+          <tbody>
+          {% for a in w.test %}
+            <tr class="{{ 'table-warning' if a.primary else '' }}">
+              <td>{% for part in a.code %}<code class="cause">{{ part }}</code>{% if not loop.last %} <span class="text-secondary">&rsaquo;</span> {% endif %}{% endfor %}</td>
+              <td class="small">{{ a.detail }}</td>
+              <td class="text-end text-nowrap">{{ a.duration }}</td>
+              <td class="text-end small">{{ a.share }}</td>
+              <td class="small text-secondary text-nowrap">{{ a.location or '-' }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table></div>
+        {% endif %}
+      </div>
+    </details>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if v.crashes %}
+  <section id="crashes" class="mb-5">
+    <h2 class="section-title mb-3">Crashes &amp; ANRs</h2>
+    {% for c in v.crashes %}
+    <div class="card mb-3 border-danger" id="{{ c.anchor }}" {% if c.step_anchor %}data-step="{{ c.step_anchor }}"{% endif %}>
+      <div class="card-header d-flex justify-content-between">
+        <span><span class="badge text-bg-{{ 'warning' if c.type == 'anr' else 'danger' }}">{{ c.label }}</span>
+          <span class="fw-semibold ms-1 text-break">{{ c.exception }}</span></span>
+        <span class="text-nowrap">
+          {% if c.step_anchor %}<a class="btn btn-sm btn-outline-secondary" href="#{{ c.step_anchor }}">Step {{ c.step }}</a>{% endif %}
+          <button class="btn btn-sm btn-link copy-link" data-copy-link="#{{ c.anchor }}">Copy link</button>
+        </span>
+      </div>
+      <div class="card-body">
+        <div class="small text-secondary mb-2">{{ c.time }} &middot; device {{ c.device_time }} &middot; process {{ c.process }} / pid {{ c.pid }} &middot; source {{ c.source }}</div>
+        {% if c.stacktrace %}<details open><summary class="small">Stack trace / log excerpt</summary><pre class="error p-2 mb-0">{{ c.stacktrace }}</pre></details>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if v.benchmarks %}
+  <section id="benchmarks" class="mb-5">
+    <h2 class="section-title mb-3">Production benchmarks</h2>
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light"><tr><th>Benchmark</th><th class="text-end">Value</th><th class="text-end">Good</th><th class="text-end">Limit</th><th>Status</th><th>Source</th></tr></thead>
+          <tbody>
+          {% for b in v.benchmarks %}
+            <tr id="{{ b.anchor }}">
+              <td class="fw-semibold">{{ b.title }}<div class="small text-secondary">{{ b.metric }} ({{ b.direction }})</div></td>
+              <td class="text-end">{{ b.value }}</td>
+              <td class="text-end text-secondary">{{ b.good }}</td>
+              <td class="text-end text-secondary">{{ b.limit }}</td>
+              <td><span class="badge text-bg-{{ b.status_class }} text-uppercase">{{ b.status }}</span>
+                {% for id in b.issues %}<a class="badge text-bg-light border text-decoration-none" href="#{{ id }}">{{ id }}</a>{% endfor %}</td>
+              <td class="small text-secondary">{{ b.source }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if v.startup %}
+  <section id="startup" class="mb-5">
+    <h2 class="section-title mb-3">App launches</h2>
+    <div class="card"><div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead class="table-light"><tr><th>Mode</th><th>Iteration</th><th class="text-end">Time</th><th>Launch state</th><th>Method</th></tr></thead>
+        <tbody>{% for st in v.startup %}<tr><td>{{ st.mode }}</td><td>{{ st.iteration }}</td><td class="text-end">{{ st.total }}</td><td>{{ st.state }}</td><td class="small text-secondary">{{ st.method }}</td></tr>{% endfor %}</tbody>
+      </table>
+    </div></div>
+  </section>
+  {% endif %}
+
+  {% if v.operations %}
+  <section id="operations" class="mb-5">
+    <h2 class="section-title mb-3">API operations</h2>
+    <div class="card"><div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light"><tr><th>Operation</th><th class="text-end">Calls</th><th class="text-end">Failed</th><th class="text-end">Avg</th><th class="text-end">p95</th><th class="text-end">Max</th>
+          <th class="text-end">Avg server time</th><th class="text-end">Avg connection setup</th><th class="text-end">Total</th><th>Trace id (slowest call)</th></tr></thead>
+        <tbody>
+        {% for o in v.operations %}
+          <tr id="{{ o.anchor }}" class="{{ 'table-danger' if o.failed else ('text-secondary' if o.background else '') }}">
+            <td><code class="cause">{{ o.name }}</code>{% if o.background %} <span class="badge text-bg-light border">background</span>{% endif %}</td><td class="text-end">{{ o.count }}</td><td class="text-end">{{ o.failed or '-' }}</td>
+            <td class="text-end">{{ o.avg }}</td><td class="text-end fw-semibold">{{ o.p95 }}</td><td class="text-end">{{ o.max }}</td>
+            <td class="text-end">{{ o.server }}</td><td class="text-end">{{ o.setup }}</td><td class="text-end small">{{ o.total }}</td>
+            <td class="small text-break"><code>{{ o.trace_id or '-' }}</code></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div></div>
+    <p class="small text-secondary mt-2">Grouped by backend operation (mPaaS <code>operationType</code>, GraphQL <code>operationName</code>, JSON-RPC <code>method</code> or an
+      <code>Operation-Type</code> header), else by URL path. Server time comes from <code>x-envoy-upstream-service-time</code> / <code>Server-Timing</code>;
+      the rest of a call is network, TLS and gateway time. Slowest p95 first. <em>Background</em> calls (analytics, logging, crash reporting,
+      OS updates; extend with <code>attribution.background_hosts</code>) are never named as a step's cause.</p>
+  </section>
+  {% endif %}
+
+  <section id="network" class="mb-5">
+    <h2 class="section-title mb-3">Network requests</h2>
+    {% if v.requests %}
+    <div class="card"><div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light"><tr><th>Time</th><th>Operation / URL</th><th>Status</th><th class="text-end">Duration</th><th class="text-end">Server</th><th>Detail</th><th class="text-end">Size</th><th>Step</th></tr></thead>
+        <tbody>
+        {% for r in v.requests %}
+          <tr class="{{ 'table-danger' if r.failed else '' }}">
+            <td class="small text-secondary">{{ r.time }}</td>
+            <td>{% if r.operation %}<code class="cause">{{ r.operation }}</code>{% endif %}
+              <div class="small text-break {{ 'text-secondary' if r.operation else '' }}">{{ r.method }} {{ r.url }}</div>
+              {% if r.trace_id %}<div class="small text-secondary">trace <code>{{ r.trace_id }}</code></div>{% endif %}</td>
+            <td>{{ r.status }}</td>
+            <td class="text-end">{{ r.duration }}</td><td class="text-end small">{{ r.server }}</td>
+            <td class="small text-secondary">{{ r.detail }}</td>
+            <td class="text-end small">{{ r.size }}</td>
+            <td class="small">{% if r.step_anchor %}<a href="#{{ r.step_anchor }}">{{ r.step_anchor }}</a>{% else %}-{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div></div>
+    <p class="small text-secondary mt-2">Failed requests first, then the slowest successful ones (up to 25).</p>
+    {% else %}
+    <div class="card"><div class="card-body text-secondary">No network requests were captured for this test.</div></div>
+    {% endif %}
+  </section>
+
+  {% if v.findings %}
+  <section id="findings" class="mb-5">
+    <h2 class="section-title mb-3">Analysis findings</h2>
+    <ul class="list-group">
+      {% for f in v.findings %}
+      <li class="list-group-item d-flex justify-content-between">
+        <div><span class="fw-semibold text-capitalize">{{ f.kind }}</span><div class="small text-secondary">{{ f.message }}</div></div>
+        {% if f.detected %}<span class="badge text-bg-danger">Detected</span>{% else %}<span class="badge text-bg-success">OK</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if e.error %}
+  <section id="error" class="mb-5">
+    <h2 class="section-title mb-3">Failure details</h2>
+    <pre class="error p-3">{{ e.error }}</pre>
+  </section>
+  {% endif %}
+{% endblock %}
+{% block footer %}{{ run.run_id }} &middot; {{ e.test_id }}{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const windows = {{ v.step_windows | tojson }};
+  const chart = document.getElementById('timeline');
+  function highlight(stepId) {
+    const w = windows[stepId];
+    if (!chart || !w || !window.Plotly || !chart.layout) return;
+    const shapes = (chart.layout.shapes || []).filter(s => s.name !== 'dl-highlight');
+    shapes.push({ type: 'rect', name: 'dl-highlight', xref: 'x', yref: 'paper', x0: w[0], x1: w[1], y0: 0, y1: 1,
+                  fillcolor: 'rgba(245, 158, 11, 0.18)', line: { color: '#f59e0b', width: 2 }, layer: 'below' });
+    Plotly.relayout(chart, { shapes });
+  }
+  window.onDeepLink = (id, el) => highlight(el.dataset.step || id);
+  if (chart && chart.on) {
+    chart.on('plotly_click', event => {
+      const anchor = event.points && event.points[0] && event.points[0].customdata;
+      if (anchor) location.hash = anchor;
+    });
+  }
+})();
+</script>
+{% endblock %}

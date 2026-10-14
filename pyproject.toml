@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mobile-perf-framework"
+version = "1.0.0"
+description = "Cloud-agnostic mobile application performance testing framework (Appium 2.x + Pytest)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "Appium-Python-Client>=4.0,<6.0",
+    "selenium>=4.25,<5.0",
+    "pytest>=8.3,<9.0",
+    "pandas>=2.2,<3.0",
+    "numpy>=1.26",
+    "plotly>=5.24,<7.0",
+    "pydantic>=2.8,<3.0",
+    "PyYAML>=6.0",
+    "Jinja2>=3.1",
+    "requests>=2.32",
+    "tenacity>=9.0",
+    "python-dotenv>=1.0",
+    "truststore>=0.10",
+    "pillow>=10",
+]
+
+[project.optional-dependencies]
+dev = ["pytest-xdist>=3.6", "pytest-html>=4.1", "ruff>=0.6", "mypy>=1.11"]
+
+[project.scripts]
+mobile-perf-compare = "core.comparison:main"
+
+# Third-party providers register here, e.g.:
+# [project.entry-points."mobile_perf.providers"]
+# browserstack = "my_company_perf.browserstack:BrowserStackProvider"
+
+[tool.setuptools.packages.find]
+include = ["core*", "providers*", "telemetry*", "models*", "reporting*", "utils*", "pages*"]
+
+[tool.setuptools.package-data]
+reporting = ["templates/*.j2"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+# Optional provider/collector hooks are intentionally empty, non-abstract methods.
+ignore = ["B027"]
+
+[tool.ruff.lint.per-file-ignores]
+# Templates that reproduce raw adb/dumpsys output verbatim.
+"providers/simulated_provider.py" = ["E501"]
+"tests/**" = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_ignores = true

@@ -1,0 +1,249 @@
+# Mobile Performance Framework configuration.
+# Values support environment interpolation: ${VAR} or ${VAR:-default}.
+
+framework:
+  name: Mobile Performance Framework
+  report_dir: reports
+  run_label: ${RUN_LABEL:-local}
+  # Additional modules imported at startup so their @register_provider /
+  # @register_collector decorators run (plugin architecture).
+  plugins: []
+
+provider:
+  name: ${PERF_PROVIDER:-simulated}
+  device: ${PERF_DEVICE:-}
+  providers:
+    testmu:
+      hub_url: https://mobile-hub.lambdatest.com/wd/hub
+      api_base_url: https://mobile-api.lambdatest.com/mobile-automation/api/v1
+      app_upload_url: https://manual-api.lambdatest.com/app/upload/realDevice
+      username: ${TESTMU_USERNAME:-}
+      access_key: ${TESTMU_ACCESS_KEY:-}
+      project: ${TESTMU_PROJECT:-Mobile Performance}
+      build: ${TESTMU_BUILD:-}
+      # lambda_adb -> TestMu ADB executor with Appium fallback; appium -> Appium only
+      telemetry_transport: lambda_adb
+      fetch_app_metrics: true
+      app_metrics_retries: 5
+      app_metrics_retry_delay_sec: 6
+      upload_cache_file: .app_upload_cache.json
+      connect_retries: 3
+      lt_options:
+        w3c: true
+        isRealMobile: true
+        devicelog: true
+        network: true
+        video: true
+        visual: false
+        appProfiling: true
+        resignApp: true
+        autoGrantPermissions: true
+        idleTimeout: 300
+    local:
+      appium_url: ${APPIUM_URL:-http://127.0.0.1:4723}
+      adb_path: ${ADB_PATH:-adb}
+      android_serial: ${ANDROID_SERIAL:-}
+      ios_udid: ${IOS_UDID:-}
+      connect_retries: 2
+      capabilities:
+        newCommandTimeout: 300
+        noReset: false
+    simulated:
+      seed: 42
+      # Synthetic memory growth (MB); > 0 lets you demo leak detection.
+      leak_mb_per_min: 4.0
+      leak_mb_per_action: 0.3
+      base_pss_mb: 180
+      base_cpu_pct: 22
+      base_fps: 57
+      base_cold_start_ms: 1150
+      step_delay_sec: 0.1
+      # > 0 makes the simulated app crash (FATAL EXCEPTION) after that many UI actions
+      crash_after_actions: 0
+      # Multipliers applied when a test runs a named build (app = simulated://<label>)
+      build_profiles:
+        build-a: {startup: 1.00, memory: 1.00, cpu: 1.00, fps: 1.00}
+        build-b: {startup: 0.90, memory: 1.12, cpu: 0.96, fps: 1.01}
+
+telemetry:
+  enabled: true
+  sampling_interval_sec: ${PERF_SAMPLING_INTERVAL:-1.0}
+  collectors: [cpu, memory, battery, network, fps]
+  # iOS metrics backend: xcuitest | instruments | xctrace
+  ios_backend: xcuitest
+  queue_maxsize: 10000
+  max_consecutive_errors: 5
+  refresh_rate_hz: 60
+  battery_simulate_unplug: true
+
+startup:
+  iterations: ${STARTUP_ITERATIONS:-5}
+  warmup_iterations: 1
+  modes: [cold, warm, hot]
+  settle_time_sec: 2.0
+
+endurance:
+  iterations: ${ENDURANCE_ITERATIONS:-50}
+  leak_slope_threshold_mb_per_min: 2.0
+  memory_growth_threshold_pct: 10
+  min_samples: 8
+  cpu_growth_threshold_pct: 20
+  degradation_threshold_pct: 20
+  window_fraction: 0.2
+  # true -> endurance tests fail when a leak / CPU growth / degradation is detected
+  fail_on_leak: ${PERF_FAIL_ON_LEAK:-false}
+
+# App crash / ANR tracking (Android logcat + provider crash reports)
+crash:
+  enabled: true
+  # Poll the device log and app state after every PerfRecorder step
+  check_after_each_step: true
+  poll_device_log: true
+  # Pull crash/device logs and crash counters from the provider after the session
+  collect_post_session: true
+  # Fail a test that otherwise passed when the app crashed during it
+  fail_on_crash: ${PERF_FAIL_ON_CRASH:-true}
+  max_stacktrace_lines: 60
+
+# Slow-step root cause: which backend operation, app class/method or test method made a
+# step slow. Backend operations are read from the network log (mPaaS operationType,
+# GraphQL operationName, JSON-RPC method, Operation-Type headers...).
+attribution:
+  enabled: true
+  trace_driver_commands: true
+  app_log_signals: true
+  # Comma-separated package prefixes of the app's own code, e.g. com.adw
+  app_packages: ${PERF_APP_PACKAGES:-}
+  # Comma-separated extra hosts that never block the UI (analytics, logging, ...);
+  # common SDK and OS-update hosts are built in
+  background_hosts: ${PERF_BACKGROUND_HOSTS:-}
+
+scoring:
+  weights:
+    startup: 25
+    memory: 20
+    cpu: 20
+    battery: 10
+    fps: 15
+    network: 10
+  # Linear normalisation: value at `target` scores 100, value at `limit` scores 0.
+  thresholds:
+    startup: {metric: cold_start_avg_ms, target: 800, limit: 3000}
+    memory: {metric: peak_pss_mb, target: 150, limit: 600}
+    cpu: {metric: avg_cpu_pct, target: 15, limit: 80}
+    battery: {metric: battery_drain_pct_per_hour, target: 5, limit: 30}
+    fps: {metric: avg_fps, target: 58, limit: 30}
+    network: {metric: p95_response_ms, target: 300, limit: 2000}
+
+comparison:
+  baseline: ${PERF_BASELINE:-}
+  fail_on_regression: false
+  # Maximum tolerated regression (%) per metric before flagging.
+  max_regression_pct:
+    cold_start_avg_ms: 10
+    warm_start_avg_ms: 10
+    hot_start_avg_ms: 10
+    peak_pss_mb: 10
+    avg_cpu_pct: 15
+    avg_fps: 10
+
+reporting:
+  title: Mobile Performance Dashboard
+  # cdn -> load plotly.js from CDN (small files); inline -> fully offline report
+  plotly_mode: cdn
+  history_file: history/trend.json
+  history_size: 50
+  # every_step | on_failure | off. Taken after each perf_recorder.step and at the end of the test.
+  screenshots: ${PERF_SCREENSHOTS:-every_step}
+  # Screenshots are downscaled to this width and stored as JPEG (0 keeps the original PNG)
+  screenshot_max_width: 540
+  screenshot_quality: 70
+  # Run folders kept under reports/runs/ (oldest are deleted first; 0 keeps all)
+  keep_runs: ${PERF_KEEP_RUNS:-30}
+
+# Production benchmarks: each metric is rated pass (at or better than `good`), warn, or
+# fail (at or worse than `limit`). Any fail -> "Not Ready", any warn -> "At Risk".
+# Defaults follow Google Play Android vitals bad-behaviour thresholds plus common SLOs;
+# tune them to your app's production targets.
+benchmarks:
+  enabled: true
+  # true -> a test that breaches a benchmark limit fails
+  fail_on_breach: ${PERF_FAIL_ON_BENCHMARK:-false}
+  rules:
+    crash_free_sessions:
+      title: Crash-free sessions
+      metric: crash_free_sessions_pct
+      good: 99.9
+      limit: 98.91
+      unit: "%"
+      source: "Android vitals: user-perceived crash rate above 1.09% is bad behaviour"
+    anr_free_sessions:
+      title: ANR-free sessions
+      metric: anr_free_sessions_pct
+      good: 99.9
+      limit: 99.53
+      unit: "%"
+      source: "Android vitals: user-perceived ANR rate above 0.47% is bad behaviour"
+    cold_start:
+      title: Cold start (p90)
+      metric: cold_start_p90_ms
+      good: 2000
+      limit: 5000
+      unit: ms
+      source: "Android vitals: cold start of 5 s or more is excessive"
+    warm_start:
+      title: Warm start
+      metric: warm_start_avg_ms
+      good: 1000
+      limit: 2000
+      unit: ms
+      source: "Android vitals: warm start of 2 s or more is excessive"
+    hot_start:
+      title: Hot start
+      metric: hot_start_avg_ms
+      good: 500
+      limit: 1500
+      unit: ms
+      source: "Android vitals: hot start of 1.5 s or more is excessive"
+    slow_frames:
+      title: Janky frames
+      metric: jank_pct
+      good: 10
+      limit: 25
+      unit: "%"
+      source: "Android vitals: a session with more than 25% slow frames is a slow session"
+    slowest_step:
+      title: Slowest user step
+      metric: slowest_step_ms
+      good: 1000
+      limit: 3000
+      unit: ms
+      source: "RAIL guidance: keep user-visible transitions under 1 s; each slower step is listed as an issue"
+    api_latency:
+      title: API response time (p95)
+      metric: p95_response_ms
+      good: 1000
+      limit: 2000
+      unit: ms
+      source: "Typical mobile API SLO"
+    api_errors:
+      title: Failed API requests
+      metric: failed_request_pct
+      good: 1
+      limit: 5
+      unit: "%"
+      source: "Typical mobile API SLO"
+    peak_memory:
+      title: Peak memory (PSS)
+      metric: peak_pss_mb
+      good: 300
+      limit: 600
+      unit: MB
+      source: "Team budget for mid-range Android devices"
+    battery_drain:
+      title: Battery drain per hour
+      metric: battery_drain_pct_per_hour
+      good: 5
+      limit: 15
+      unit: "%/h"
+      source: "Team budget"

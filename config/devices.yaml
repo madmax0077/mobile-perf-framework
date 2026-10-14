@@ -1,0 +1,56 @@
+# Device profiles. `providers.<name>` entries are merged into that provider's
+# capabilities, so one logical device can map to cloud and local hardware.
+
+defaults:
+  android: pixel_8
+  ios: iphone_15
+
+devices:
+  pixel_8:
+    platform: android
+    device_name: Pixel 8
+    platform_version: "14"
+    providers:
+      testmu:
+        deviceName: Pixel 8
+        platformVersion: "14"
+      local:
+        udid: ${ANDROID_SERIAL:-emulator-5554}
+
+  galaxy_s24:
+    platform: android
+    device_name: Galaxy S24
+    platform_version: "14"
+    providers:
+      testmu:
+        deviceName: Galaxy S24
+        platformVersion: "14"
+
+  pixel_6_low_end:
+    platform: android
+    device_name: Pixel 6a
+    platform_version: "13"
+    providers:
+      testmu:
+        deviceName: Pixel 6a
+        platformVersion: "13"
+
+  iphone_15:
+    platform: ios
+    device_name: iPhone 15
+    platform_version: "17"
+    providers:
+      testmu:
+        deviceName: iPhone 15
+        platformVersion: "17"
+      local:
+        udid: ${IOS_UDID:-}
+
+  iphone_13:
+    platform: ios
+    device_name: iPhone 13
+    platform_version: "16"
+    providers:
+      testmu:
+        deviceName: iPhone 13
+        platformVersion: "16"

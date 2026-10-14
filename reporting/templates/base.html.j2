@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block page_title %}{{ title }}{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  {% block head_scripts %}{{ plotly_js | safe }}{% endblock %}
+  <style>
+    :root { --mp-bg: #f5f7fb; }
+    body { background: var(--mp-bg); }
+    .navbar-brand small { font-weight: 400; opacity: .7; }
+    section, [id] { scroll-margin-top: 80px; }
+    .section-title { font-weight: 600; letter-spacing: .2px; }
+    .kpi { border: 0; border-left: 4px solid var(--bs-primary); }
+    .kpi .value { font-size: 1.35rem; font-weight: 600; }
+    .kpi .label { font-size: .78rem; text-transform: uppercase; color: var(--bs-secondary-color); }
+    .card { box-shadow: 0 1px 3px rgba(16, 24, 40, .06); border-color: #e6e9f0; }
+    .empty-chart { display: flex; align-items: center; justify-content: center; min-height: 160px;
+                   border: 1px dashed #cfd5e2; border-radius: .5rem; background: #fafbfd; }
+    .summary-table th { width: 38%; color: var(--bs-secondary-color); font-weight: 500; }
+    pre.error { max-height: 260px; overflow: auto; font-size: .75rem; background: #fff5f5; white-space: pre-wrap; }
+    .badge-rating { font-size: 1rem; }
+    .copy-link { font-size: .72rem; }
+    .dl-target, tr.dl-target > td { background: #fff4d6 !important; transition: background 1.5s; }
+    .dl-target { box-shadow: 0 0 0 3px #f59e0b; border-radius: .375rem; }
+    tr.dl-target { box-shadow: none; }
+    .filmstrip { display: flex; gap: .75rem; overflow-x: auto; padding-bottom: .5rem; }
+    .filmstrip figure { flex: 0 0 auto; width: 132px; margin: 0; }
+    .filmstrip img, .step-shot img { width: 100%; border-radius: .375rem; border: 1px solid #dfe3ec;
+                                     background: #fff; cursor: zoom-in; }
+    .filmstrip figcaption { font-size: .72rem; color: var(--bs-secondary-color); margin-top: .25rem;
+                            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .filmstrip figure.failed img { border: 2px solid var(--bs-danger); }
+    .step-shot { width: 64px; }
+    .step-shot img { height: 96px; object-fit: cover; object-position: top; }
+    .step-row.failed { border-left: 4px solid var(--bs-danger); }
+    .step-row.slow { border-left: 4px solid var(--bs-warning); }
+    .step-row.wait { border-left: 4px solid #9ca3af; }
+    .step-row.ok { border-left: 4px solid var(--bs-success); }
+    code.cause { color: #7c2d12; background: #fff7ed; padding: 0 .25rem; border-radius: .25rem; word-break: break-all; }
+    .cause-cell { max-width: 340px; }
+    .why-card { scroll-margin-top: 72px; }
+    .why-card > summary { cursor: pointer; list-style: none; }
+    .why-card > summary::-webkit-details-marker { display: none; }
+    .why-card.slow { border-left: 4px solid var(--bs-warning); }
+    .why-card.failed { border-left: 4px solid var(--bs-danger); }
+    .waterfall-col { min-width: 180px; }
+    .waterfall { position: relative; height: 10px; background: #eef1f6; border-radius: 3px; }
+    .waterfall span { position: absolute; top: 0; bottom: 0; background: #3b82f6; border-radius: 3px; }
+    tr.table-warning .waterfall span { background: #f59e0b; }
+    tr.text-secondary .waterfall span { background: #b8c2d1; }
+    #lightbox img { max-height: 78vh; max-width: 100%; }
+    .issue-filter .btn { font-size: .8rem; }
+  </style>
+</head>
+<body data-bs-spy="scroll" data-bs-target="#nav">
+<nav id="nav" class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+  <div class="container-fluid">
+    {% block brand %}<a class="navbar-brand" href="{{ home }}">{{ title }}</a>{% endblock %}
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navlinks">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navlinks">
+      <ul class="navbar-nav ms-auto">
+        {% block nav %}{% endblock %}
+        <li class="nav-item"><a class="nav-link" href="{{ home }}">All runs</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<main class="container-xxl py-4">
+{% block content %}{% endblock %}
+</main>
+
+<div class="modal fade" id="lightbox" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title" id="lightbox-caption"></h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center bg-dark-subtle">
+        <img id="lightbox-img" alt="screenshot">
+      </div>
+      <div class="modal-footer py-2 justify-content-between">
+        <button class="btn btn-sm btn-outline-secondary" id="lightbox-prev">&larr; Previous</button>
+        <a class="btn btn-sm btn-outline-primary" id="lightbox-step" href="#">Go to step</a>
+        <a class="btn btn-sm btn-outline-secondary" id="lightbox-open" target="_blank" rel="noopener">Open image</a>
+        <button class="btn btn-sm btn-outline-secondary" id="lightbox-next">Next &rarr;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="text-center text-secondary small pb-4">{% block footer %}{% endblock %}</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(() => {
+  // Deep links: #anchor scrolls to, highlights and expands the target element.
+  function focusTarget() {
+    const id = decodeURIComponent(location.hash.slice(1));
+    const el = id && document.getElementById(id);
+    if (!el) return;
+    document.querySelectorAll('.dl-target').forEach(e => e.classList.remove('dl-target'));
+    const card = el.tagName === 'DETAILS';
+    if (card) el.open = true;
+    else el.querySelectorAll('details').forEach(d => { d.open = true; });
+    let parent = el.parentElement && el.parentElement.closest('details');
+    while (parent) { parent.open = true; parent = parent.parentElement && parent.parentElement.closest('details'); }
+    el.classList.add('dl-target');
+    el.scrollIntoView({ block: card ? 'start' : 'center' });
+    if (window.onDeepLink) window.onDeepLink(id, el);
+  }
+  window.addEventListener('hashchange', focusTarget);
+  window.addEventListener('load', focusTarget);
+
+  document.addEventListener('click', event => {
+    const button = event.target.closest('[data-copy-link]');
+    if (!button) return;
+    event.preventDefault();
+    const url = new URL(button.dataset.copyLink, location.href).href;
+    const done = () => { const t = button.textContent; button.textContent = 'Copied'; setTimeout(() => { button.textContent = t; }, 1500); };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(url).then(done, () => prompt('Copy link', url));
+    else prompt('Copy link', url);
+  });
+
+  // Screenshot lightbox with previous / next across all [data-shot] links on the page.
+  const shots = Array.from(document.querySelectorAll('a[data-shot]'));
+  const box = document.getElementById('lightbox');
+  if (!shots.length || !window.bootstrap) return;
+  const modal = new bootstrap.Modal(box);
+  let current = 0;
+  const unique = [];
+  shots.forEach(a => { if (!unique.some(u => u.getAttribute('href') === a.getAttribute('href'))) unique.push(a); });
+  function show(i) {
+    current = (i + unique.length) % unique.length;
+    const a = unique[current];
+    document.getElementById('lightbox-img').src = a.getAttribute('href');
+    document.getElementById('lightbox-open').href = a.getAttribute('href');
+    document.getElementById('lightbox-caption').textContent = `${current + 1} / ${unique.length} - ${a.dataset.caption || ''}`;
+    const step = document.getElementById('lightbox-step');
+    step.style.visibility = a.dataset.step ? 'visible' : 'hidden';
+    step.href = a.dataset.step ? '#' + a.dataset.step : '#';
+  }
+  shots.forEach(a => a.addEventListener('click', event => {
+    event.preventDefault();
+    show(unique.findIndex(u => u.getAttribute('href') === a.getAttribute('href')));
+    modal.show();
+  }));
+  document.getElementById('lightbox-prev').addEventListener('click', () => show(current - 1));
+  document.getElementById('lightbox-next').addEventListener('click', () => show(current + 1));
+  document.getElementById('lightbox-step').addEventListener('click', () => modal.hide());
+  box.addEventListener('keydown', event => {
+    if (event.key === 'ArrowLeft') show(current - 1);
+    if (event.key === 'ArrowRight') show(current + 1);
+  });
+})();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

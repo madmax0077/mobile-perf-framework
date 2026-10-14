@@ -1,0 +1,107 @@
+// Declarative pipeline. Requires: HTML Publisher, JUnit, Copy Artifact plugins.
+// Credentials: 'testmu-credentials' (username/password) in Jenkins credentials store.
+
+pipeline {
+    agent { label 'linux && python312' }
+
+    parameters {
+        choice(name: 'PROVIDER', choices: ['testmu', 'simulated'], description: 'Device provider')
+        string(name: 'DEVICE', defaultValue: 'pixel_8', description: 'Device profile')
+        string(name: 'ITERATIONS', defaultValue: '5', description: 'Startup / endurance iterations')
+        booleanParam(name: 'RUN_DEVICE_SUITE', defaultValue: false, description: 'Run on real devices')
+    }
+
+    options {
+        timestamps()
+        timeout(time: 2, unit: 'HOURS')
+        buildDiscarder(logRotator(numToKeepStr: '30', artifactNumToKeepStr: '15'))
+        copyArtifactPermission('*')
+    }
+
+    environment {
+        PERF_LABEL = "jenkins-${env.BUILD_NUMBER}"
+        APP_BUILD = "${env.BUILD_NUMBER}"
+        VENV = "${env.WORKSPACE}/.venv"
+    }
+
+    stages {
+        stage('Setup') {
+            steps {
+                sh '''
+                    python3.12 -m venv "$VENV"
+                    . "$VENV/bin/activate"
+                    pip install -q -r requirements-dev.txt
+                '''
+            }
+        }
+
+        stage('Unit tests') {
+            steps {
+                sh '. "$VENV/bin/activate" && pytest tests/unit --junitxml=reports/junit-unit.xml'
+            }
+        }
+
+        stage('Restore trend history') {
+            steps {
+                script {
+                    try {
+                        copyArtifacts(projectName: env.JOB_NAME, selector: lastSuccessful(),
+                                      filter: 'reports/history/**,reports/metrics.json', target: 'previous',
+                                      optional: true)
+                        sh 'mkdir -p reports && [ -d previous/reports/history ] && cp -r previous/reports/history reports/ || true'
+                    } catch (err) {
+                        echo "No previous trend history: ${err}"
+                    }
+                }
+            }
+        }
+
+        stage('Simulated smoke') {
+            when { expression { !params.RUN_DEVICE_SUITE } }
+            steps {
+                sh '''
+                    . "$VENV/bin/activate"
+                    pytest tests/startup tests/user_journey tests/stress tests/benchmark \
+                      --provider simulated --iterations 3 --perf-label "$PERF_LABEL" \
+                      --junitxml=reports/junit-perf.xml
+                '''
+            }
+        }
+
+        stage('Device performance') {
+            when { expression { params.RUN_DEVICE_SUITE } }
+            environment {
+                TESTMU = credentials('testmu-credentials')
+                TESTMU_USERNAME = "${TESTMU_USR}"
+                TESTMU_ACCESS_KEY = "${TESTMU_PSW}"
+                TESTMU_BUILD = "${env.JOB_NAME} #${env.BUILD_NUMBER}"
+            }
+            steps {
+                sh '''
+                    . "$VENV/bin/activate"
+                    BASELINE_ARG=""
+                    [ -f previous/reports/metrics.json ] && BASELINE_ARG="--perf-baseline previous/reports/metrics.json"
+                    pytest tests/startup tests/user_journey tests/stress \
+                      --provider "$PROVIDER" --device "$DEVICE" --iterations "$ITERATIONS" \
+                      --perf-label "$PERF_LABEL" $BASELINE_ARG --junitxml=reports/junit-perf.xml
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            sh '. "$VENV/bin/activate" && python ci/publish_summary.py reports/metrics.json > reports/summary.md || true'
+            junit allowEmptyResults: true, testResults: 'reports/junit-*.xml'
+            archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true, fingerprint: true
+            publishHTML(target: [
+                reportName : 'Mobile Performance',
+                reportDir  : 'reports',
+                reportFiles: 'index.html',
+                keepAll    : true,
+                alwaysLinkToLastBuild: true,
+                allowMissing: true,
+            ])
+        }
+    }
+}

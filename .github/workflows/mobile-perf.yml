@@ -1,0 +1,139 @@
+name: mobile-performance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: Device provider
+        default: testmu
+        type: choice
+        options: [testmu, simulated]
+      device:
+        description: Device profile (config/devices.yaml)
+        default: pixel_8
+      iterations:
+        description: Startup / endurance iterations
+        default: "5"
+
+concurrency:
+  group: mobile-perf-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  PERF_LABEL: gha-${{ github.run_number }}
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - run: pytest tests/unit --junitxml=reports/junit-unit.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: junit-unit
+          path: reports/junit-unit.xml
+
+  simulated-smoke:
+    needs: unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Restore trend history
+        uses: actions/cache/restore@v4
+        with:
+          path: reports/history
+          key: perf-history-sim-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: perf-history-sim-${{ github.ref_name }}-
+      - name: Run simulated performance suite
+        run: >
+          pytest tests/startup tests/user_journey tests/stress tests/benchmark
+          --provider simulated --iterations 3 --perf-label "$PERF_LABEL"
+          --junitxml=reports/junit-sim.xml
+        env:
+          ENDURANCE_PROFILES: "50"
+      - name: Job summary
+        if: always()
+        run: python ci/publish_summary.py reports/metrics.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: reports/history
+          key: perf-history-sim-${{ github.ref_name }}-${{ github.run_id }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: perf-report-simulated
+          path: reports/
+
+  device-cloud:
+    needs: unit
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      TESTMU_USERNAME: ${{ secrets.TESTMU_USERNAME }}
+      TESTMU_ACCESS_KEY: ${{ secrets.TESTMU_ACCESS_KEY }}
+      ANDROID_APP: ${{ vars.ANDROID_APP }}
+      ANDROID_APP_PACKAGE: ${{ vars.ANDROID_APP_PACKAGE }}
+      ANDROID_APP_ACTIVITY: ${{ vars.ANDROID_APP_ACTIVITY }}
+      APP_VERSION: ${{ vars.APP_VERSION }}
+      APP_BUILD: ${{ github.run_number }}
+      TESTMU_BUILD: "${{ github.repository }} run ${{ github.run_number }}"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Restore trend history and baseline
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            reports/history
+            baseline
+          key: perf-history-device-${{ github.run_id }}
+          restore-keys: perf-history-device-
+      - name: Run device performance suite
+        run: |
+          BASELINE_ARG=""
+          if [ -f baseline/metrics.json ]; then BASELINE_ARG="--perf-baseline baseline/metrics.json"; fi
+          pytest tests/startup tests/user_journey tests/stress \
+            --provider "${{ inputs.provider || 'testmu' }}" \
+            --device "${{ inputs.device || 'pixel_8' }}" \
+            --iterations "${{ inputs.iterations || '5' }}" \
+            --perf-label "$PERF_LABEL" $BASELINE_ARG \
+            --junitxml=reports/junit-device.xml
+      - name: Job summary
+        if: always()
+        run: python ci/publish_summary.py reports/metrics.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Promote baseline (main only)
+        if: success() && github.ref == 'refs/heads/main'
+        run: mkdir -p baseline && cp reports/metrics.json baseline/metrics.json
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: |
+            reports/history
+            baseline
+          key: perf-history-device-${{ github.run_id }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: perf-report-device
+          path: reports/

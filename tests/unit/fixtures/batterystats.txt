@@ -1,0 +1,8 @@
+Statistics since last charge:
+  System starts: 0, currently on battery: true
+  Estimated power use (mAh):
+    Capacity: 4614, Computed drain: 31.4, actual drain: 0
+    Global
+      screen: 10.3 apps: 10.3 duration: 10m 12s 0ms
+    UID u0a123: 2.48 fg: 2.10 bg: 0.38 ( cpu=1.20 wifi=0.30 screen=0.98 )
+    UID 1000: 1.10 ( cpu=1.10 )
